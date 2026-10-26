@@ -1,6 +1,7 @@
 -- NEUROFIT PERFORMANCE LAB — BASE DE DATOS COMPARTIDA CON LISTA DE ACCESO
 -- Ejecuta este script en Supabase > SQL Editor > New query.
--- La tabla de datos solo es accesible a usuarios que estén en neurofit_allowed_users.
+-- Las cuentas se crean desde la web con email y contraseña (no se requieren invitaciones).
+-- Solo los correos incluidos en neurofit_allowed_users pueden leer/editar los datos compartidos.
 
 create table if not exists public.neurofit_allowed_users (
   email text primary key check (email = lower(email)),
@@ -88,4 +89,4 @@ end $$;
 --   (lower('tu-correo@ejemplo.com')),
 --   (lower('colaborador@ejemplo.com'))
 -- on conflict (email) do nothing;
--- Solo los correos de esta lista podrán leer y editar los datos compartidos.
+-- Autoriza los emails aquí antes o después de que creen su cuenta en NeuroFit. No necesitas enviar invitaciones, pero sí revisar quién accede a los datos deportivos.
