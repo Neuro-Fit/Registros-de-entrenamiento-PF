@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#07172d" />
+  <meta name="description" content="Panel de seguimiento del desarrollo físico, cargas y pruebas de rendimiento deportivo." />
+  <title>NeuroFit | Seguimiento de rendimiento</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <section class="auth-gate" id="authGate" aria-labelledby="authTitle">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="auth-logo"><img src="https://i.postimg.cc/yY45rPjP/1-1-1-Photoroom.png" alt="NeuroFit" onerror="this.style.display='none'" /></div>
+        <div><strong>NEURO<span>FIT</span></strong><small>PERFORMANCE LAB</small></div>
+      </div>
+      <p class="eyebrow">ACCESO PRIVADO</p>
+      <h1 id="authTitle">Tu equipo, tus datos, en cualquier dispositivo.</h1>
+      <p class="auth-intro">Entra con tu correo autorizado y recibe un enlace seguro para acceder al seguimiento deportivo sincronizado.</p>
+      <form id="authForm" class="auth-form">
+        <label for="authEmail">Correo electrónico</label>
+        <input id="authEmail" name="email" type="email" placeholder="tu@correo.com" autocomplete="email" required />
+        <button class="button button-primary auth-submit" id="authSubmit" type="submit">Enviar enlace de acceso <span>→</span></button>
+      </form>
+      <p id="authMessage" class="auth-message" role="status">Configura Supabase para activar el acceso y la sincronización en la nube.</p>
+      <div class="auth-security"><span>●</span> Acceso por invitación · Sesión privada · Sincronización en la nube</div>
+      <details class="setup-details"><summary>¿Todavía no has conectado Supabase?</summary><p>Abre <strong>supabase-config.js</strong>, pega la URL de tu proyecto y la clave publicable. Después ejecuta el archivo <strong>supabase-setup.sql</strong> en el SQL Editor de Supabase y crea/invita las cuentas autorizadas.</p></details>
+    </div>
+  </section>
+
+  <div class="app-shell" id="appShell" hidden>
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">
+          <img src="https://i.postimg.cc/yY45rPjP/1-1-1-Photoroom.png" alt="Logo" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'" />
+          <span class="brand-fallback">N</span>
+        </div>
+        <div class="brand-copy"><strong>NEURO<span>FIT</span></strong><small>PERFORMANCE LAB</small></div>
+        <button class="icon-button sidebar-close" id="sidebarClose" aria-label="Cerrar menú">✕</button>
+      </div>
+      <div class="workspace-label">ENTRENAMIENTO</div>
+      <nav class="nav-menu" aria-label="Navegación principal">
+        <button class="nav-item active" data-page="dashboard"><span class="nav-icon">▦</span><span>Panel general</span></button>
+        <button class="nav-item" data-page="students"><span class="nav-icon">♙</span><span>Mis alumnos</span><span class="nav-count" id="studentNavCount">0</span></button>
+        <button class="nav-item" data-page="strength"><span class="nav-icon">↗</span><span>Cargas de fuerza</span></button>
+        <button class="nav-item" data-page="tests"><span class="nav-icon">◷</span><span>Pruebas físicas</span></button>
+        <button class="nav-item" data-page="library"><span class="nav-icon">▤</span><span>Biblioteca</span></button>
+      </nav>
+      <div class="workspace-label workspace-label-spaced">GESTIÓN</div>
+      <nav class="nav-menu">
+        <button class="nav-item" data-page="reports"><span class="nav-icon">▥</span><span>Reportes y datos</span></button>
+      </nav>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-tip">
+        <div class="tip-spark">✦</div>
+        <strong>Progreso con propósito</strong>
+        <p>Registra, compara y toma decisiones a partir de datos consistentes.</p>
+      </div>
+      <div class="sidebar-footer"><span class="status-dot"></span><span>Guardado local activado</span></div>
+    </aside>
+
+    <div class="mobile-scrim" id="mobileScrim"></div>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-button menu-toggle" id="menuToggle" aria-label="Abrir menú">☰</button>
+          <div class="breadcrumbs"><span>NeuroFit</span><span class="crumb-slash">/</span><strong id="pageCrumb">Panel general</strong></div>
+        </div>
+        <div class="topbar-actions">
+          <div class="local-badge" id="syncBadge"><span class="status-dot"></span> Conectando nube…</div>
+          <button class="button button-primary button-small" data-action="new-student"><span>＋</span> Nuevo alumno</button>
+          <div class="account-chip"><span class="avatar" id="accountAvatar">PF</span><span id="accountEmail" class="account-email">Cuenta</span><button id="signOutButton" class="button button-ghost button-small" type="button">Salir</button></div>
+        </div>
+      </header>
+
+      <section class="page-content" id="pageContent" aria-live="polite"></section>
+      <footer class="app-footer"><span>NEUROFIT PERFORMANCE LAB</span><span>Herramienta de seguimiento · No sustituye una valoración profesional</span></footer>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header"><div><p class="eyebrow" id="modalEyebrow">REGISTRO</p><h2 id="modalTitle">Nuevo registro</h2></div><button class="icon-button" id="modalClose" aria-label="Cerrar">✕</button></div>
+      <div id="modalBody"></div>
+    </section>
+  </div>
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>
