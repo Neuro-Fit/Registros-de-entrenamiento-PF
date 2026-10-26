@@ -694,10 +694,38 @@ function viewProfile(id) {
 function closeMobileMenu() { $('#sidebar').classList.remove('open'); $('#mobileScrim').classList.remove('show'); }
 
 
-// ---------------------- Supabase: correo autorizado + base compartida ----------------------
+// ---------------------- Supabase: correo + contraseña + base compartida ----------------------
+let authMode = 'login';
+let passwordRecoveryActive = false;
 function setAuthMessage(message, type = '') {
   const el = $('#authMessage'); if (!el) return;
   el.textContent = message; el.className = `auth-message ${type}`.trim();
+}
+function setAuthMode(mode) {
+  authMode = mode === 'signup' ? 'signup' : 'login';
+  const submit = $('#authSubmit');
+  const toggle = $('#authModeToggle');
+  const password = $('#authPassword');
+  const intro = $('#authIntro');
+  if (submit) submit.innerHTML = authMode === 'signup' ? 'Crear cuenta <span>→</span>' : 'Iniciar sesión <span>→</span>';
+  if (toggle) toggle.textContent = authMode === 'signup' ? '¿Ya tienes cuenta? Iniciar sesión' : '¿No tienes cuenta? Crear una';
+  if (password) { password.autocomplete = authMode === 'signup' ? 'new-password' : 'current-password'; password.minLength = authMode === 'signup' ? 8 : 1; password.placeholder = authMode === 'signup' ? 'Mínimo 8 caracteres' : 'Tu contraseña'; }
+  if (intro) intro.textContent = authMode === 'signup'
+    ? 'Crea tu cuenta con correo y contraseña. Para proteger los datos deportivos, el correo debe estar autorizado en el espacio compartido.'
+    : 'Inicia sesión con el correo electrónico y la contraseña de tu cuenta para consultar los datos sincronizados.';
+}
+function setPasswordRecoveryView(active) {
+  passwordRecoveryActive = Boolean(active);
+  const authForm = $('#authForm');
+  const recoveryForm = $('#passwordRecoveryForm');
+  const details = $('.setup-details');
+  const security = $('.auth-security');
+  if (authForm) authForm.hidden = passwordRecoveryActive;
+  if (recoveryForm) recoveryForm.hidden = !passwordRecoveryActive;
+  if (details) details.hidden = passwordRecoveryActive;
+  if (security) security.hidden = passwordRecoveryActive;
+  showAuthGate();
+  if (passwordRecoveryActive) setAuthMessage('Escribe una contraseña nueva de al menos 8 caracteres.');
 }
 function setSyncStatus(message, state = 'ok') {
   const badge = $('#syncBadge');
@@ -712,9 +740,10 @@ function showAuthGate() {
 function showApplication(user) {
   $('#authGate').hidden = true; $('#authGate').style.display = 'none';
   $('#appShell').hidden = false; $('#appShell').style.display = 'flex';
-  if ($('#accountEmail')) $('#accountEmail').textContent = user.email || 'Cuenta autorizada';
+  if ($('#accountEmail')) $('#accountEmail').textContent = user.email || 'Cuenta';
   if ($('#accountAvatar')) $('#accountAvatar').textContent = initials(user.email || 'PF');
 }
+function currentRedirectUrl() { return `${window.location.origin}${window.location.pathname}`; }
 async function initializeAuth() {
   const url = String(window.NEUROFIT_SUPABASE_URL || '');
   const key = String(window.NEUROFIT_SUPABASE_ANON_KEY || '');
@@ -728,40 +757,125 @@ async function initializeAuth() {
   }
   if ($('#authSubmit')) $('#authSubmit').disabled = false;
   supabaseClient = window.supabase.createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+  setAuthMode('login');
+
   form?.addEventListener('submit', async event => {
     event.preventDefault();
+    if (passwordRecoveryActive) return;
     const email = String($('#authEmail')?.value || '').trim().toLowerCase();
+    const password = String($('#authPassword')?.value || '');
     if (!email || !email.includes('@')) { setAuthMessage('Escribe un correo electrónico válido.', 'error'); return; }
-    const btn = $('#authSubmit'); if (btn) { btn.disabled = true; btn.textContent = 'Enviando enlace…'; }
-    setAuthMessage('Solicitando el enlace seguro de acceso…');
+    if (!password || (authMode === 'signup' && password.length < 8)) { setAuthMessage(authMode === 'signup' ? 'La contraseña debe tener al menos 8 caracteres.' : 'Escribe tu contraseña.', 'error'); return; }
+    const btn = $('#authSubmit');
+    if (btn) { btn.disabled = true; btn.textContent = authMode === 'signup' ? 'Creando cuenta…' : 'Iniciando sesión…'; }
+    setAuthMessage(authMode === 'signup' ? 'Creando tu cuenta…' : 'Comprobando tus datos…');
     try {
-      const { error } = await supabaseClient.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: false, emailRedirectTo: `${window.location.origin}${window.location.pathname}` }
-      });
-      if (error) throw error;
-      setAuthMessage('Solicitud enviada. Revisa la bandeja de entrada y el correo no deseado. Solo pueden acceder correos que ya hayan sido autorizados en Supabase.', 'success');
+      if (authMode === 'signup') {
+        const { data, error } = await supabaseClient.auth.signUp({
+          email, password,
+          options: { emailRedirectTo: currentRedirectUrl() }
+        });
+        if (error) throw error;
+        if (data.session?.user) {
+          setAuthMessage('Cuenta creada. Conectando con el espacio compartido…', 'success');
+          await bootCloudSession(data.session.user);
+        } else {
+          setAuthMessage('Cuenta creada. Revisa tu correo para confirmar la dirección si Supabase lo solicita. Después vuelve aquí e inicia sesión. Asegúrate de que el correo esté autorizado para acceder a los datos compartidos.', 'success');
+          setAuthMode('login');
+        }
+      } else {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        if (data.user) await bootCloudSession(data.user);
+      }
     } catch (error) {
-      setAuthMessage(`No se pudo enviar el enlace: ${error.message || 'error de autenticación'}. Comprueba que el correo esté invitado y que la URL de redirección esté permitida en Supabase.`, 'error');
-    } finally { if (btn) { btn.disabled = false; btn.innerHTML = 'Enviar enlace de acceso <span>→</span>'; } }
+      const detail = String(error?.message || 'Error de autenticación');
+      if (/invalid login credentials/i.test(detail)) {
+        setAuthMessage('Correo o contraseña incorrectos. Si todavía no tienes cuenta, selecciona “Crear una”.', 'error');
+      } else if (/already registered|user already exists/i.test(detail)) {
+        setAuthMessage('Este correo ya tiene una cuenta. Cambia a “Iniciar sesión” o utiliza “Olvidé mi contraseña”.', 'error');
+      } else {
+        setAuthMessage(`No se pudo completar el acceso: ${detail}`, 'error');
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+      setAuthMode(authMode);
+    }
   });
+
+  $('#authModeToggle')?.addEventListener('click', () => {
+    setAuthMode(authMode === 'login' ? 'signup' : 'login');
+    setAuthMessage(authMode === 'signup'
+      ? 'Regístrate con tu correo y contraseña. Para proteger los datos, el email debe estar autorizado en el espacio compartido.'
+      : 'Ingresa con la cuenta que ya creaste.');
+  });
+
+  $('#authReset')?.addEventListener('click', async () => {
+    const email = String($('#authEmail')?.value || '').trim().toLowerCase();
+    if (!email || !email.includes('@')) { setAuthMessage('Escribe tu correo en el campo de arriba y vuelve a pulsar “Olvidé mi contraseña”.', 'error'); $('#authEmail')?.focus(); return; }
+    const btn = $('#authReset'); if (btn) btn.disabled = true;
+    try {
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: currentRedirectUrl() });
+      if (error) throw error;
+      setAuthMessage('Si existe una cuenta para ese correo, recibirás un enlace para cambiar la contraseña. Revisa también el correo no deseado.', 'success');
+    } catch (error) {
+      setAuthMessage(`No se pudo solicitar el cambio de contraseña: ${error.message || 'error desconocido'}`, 'error');
+    } finally { if (btn) btn.disabled = false; }
+  });
+
+  $('#passwordRecoveryForm')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const password = String($('#newPassword')?.value || '');
+    const confirmation = String($('#confirmPassword')?.value || '');
+    if (password.length < 8) { setAuthMessage('La contraseña debe tener al menos 8 caracteres.', 'error'); return; }
+    if (password !== confirmation) { setAuthMessage('Las contraseñas no coinciden.', 'error'); return; }
+    const btn = $('#updatePasswordButton'); if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+    try {
+      const { error } = await supabaseClient.auth.updateUser({ password });
+      if (error) throw error;
+      passwordRecoveryActive = false;
+      $('#passwordRecoveryForm').hidden = true;
+      $('#authForm').hidden = false;
+      $('#passwordRecoveryForm').reset();
+      await supabaseClient.auth.signOut();
+      setAuthGateAfterRecovery();
+      setAuthMessage('Contraseña actualizada. Ya puedes iniciar sesión con tu correo y la nueva contraseña.', 'success');
+    } catch (error) {
+      setAuthMessage(`No se pudo actualizar la contraseña: ${error.message || 'error desconocido'}`, 'error');
+    } finally { if (btn) { btn.disabled = false; btn.innerHTML = 'Guardar nueva contraseña <span>→</span>'; } }
+  });
+  $('#cancelRecovery')?.addEventListener('click', () => {
+    passwordRecoveryActive = false;
+    setAuthGateAfterRecovery();
+    setAuthMessage('Puedes iniciar sesión con tu correo y contraseña.');
+  });
+
   $('#signOutButton')?.addEventListener('click', async () => {
     setSyncStatus('Cerrando sesión…', 'pending');
     const { error } = await supabaseClient.auth.signOut();
     if (error) toast('No se pudo cerrar la sesión', error.message);
-    else { cloudReady = false; currentUser = null; cloudBootingUserId = null; if (realtimeChannel) await supabaseClient.removeChannel(realtimeChannel); showAuthGate(); setAuthMessage('Sesión cerrada. Ingresa con un correo autorizado para continuar.'); }
+    else { cloudReady = false; currentUser = null; cloudBootingUserId = null; if (realtimeChannel) await supabaseClient.removeChannel(realtimeChannel); passwordRecoveryActive = false; $('#authForm').hidden = false; $('#passwordRecoveryForm').hidden = true; setAuthMode('login'); showAuthGate(); setAuthMessage('Sesión cerrada. Ingresa con tu correo y contraseña.'); }
   });
   supabaseClient.auth.onAuthStateChange((event, session) => {
     // Evita ejecutar operaciones de base de datos dentro del callback de Auth.
     setTimeout(() => {
-      if (session?.user) bootCloudSession(session.user);
+      if (event === 'PASSWORD_RECOVERY') { setPasswordRecoveryView(true); return; }
+      if (session?.user && !passwordRecoveryActive) bootCloudSession(session.user);
       else if (event === 'SIGNED_OUT') { cloudReady = false; currentUser = null; showAuthGate(); }
     }, 0);
   });
   const { data, error } = await supabaseClient.auth.getSession();
   if (error) { showAuthGate(); setAuthMessage(`No se pudo comprobar la sesión: ${error.message}`, 'error'); return; }
-  if (data.session?.user) await bootCloudSession(data.session.user);
+  if (data.session?.user && !passwordRecoveryActive) await bootCloudSession(data.session.user);
   else showAuthGate();
+}
+function setAuthGateAfterRecovery() {
+  showAuthGate();
+  $('#authForm').hidden = false;
+  $('#passwordRecoveryForm').hidden = true;
+  $('.setup-details')?.removeAttribute('hidden');
+  $('.auth-security')?.removeAttribute('hidden');
+  setAuthMode('login');
 }
 let cloudBootPromise = null;
 async function bootCloudSession(user) {
@@ -796,7 +910,12 @@ async function bootCloudSession(user) {
     } catch (error) {
       applyingCloudData = false; cloudReady = false;
       showAuthGate();
-      setAuthMessage(`No se pudo conectar a la base de datos: ${error.message || 'error desconocido'}. Revisa que hayas ejecutado supabase-setup.sql y que el proyecto/clave sean correctos.`, 'error');
+      const cloudError = String(error.message || 'error desconocido');
+      if (/row-level security|permission denied|42501|not allowed/i.test(cloudError)) {
+        setAuthMessage(`La cuenta inició sesión, pero el correo no está autorizado para ver los datos compartidos. Añade ${user.email || 'este correo'} a public.neurofit_allowed_users en Supabase y vuelve a iniciar sesión.`, 'error');
+      } else {
+        setAuthMessage(`No se pudo conectar a la base de datos: ${cloudError}. Revisa que hayas ejecutado supabase-setup.sql y que el proyecto/clave sean correctos.`, 'error');
+      }
     } finally {
       if (cloudBootingUserId === user.id) cloudBootingUserId = null;
       cloudBootPromise = null;
