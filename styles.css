@@ -298,6 +298,10 @@ tbody tr:hover { background: #fbfdff; }
 .auth-form input:focus { border-color:#49bfd6; box-shadow:0 0 0 3px rgba(94,214,238,.17); }
 .auth-submit { width:100%; justify-content:center; margin-top:6px; min-height:47px; }
 .auth-submit span { font-size:17px; }
+.auth-secondary-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 14px; margin-top:8px; }
+.auth-text-button { border:0; background:transparent; color:#168da7; font:700 11px "DM Sans",sans-serif; padding:5px 0; text-align:left; cursor:pointer; }
+.auth-text-button:hover { color:#0a5d73; text-decoration:underline; }
+.auth-text-button:disabled { opacity:.55; cursor:wait; }
 .auth-message { background:#f1f7fb; border:1px solid #e1ebf2; color:#536a80; border-radius:10px; padding:11px 12px; font-size:12px; line-height:1.6; margin:16px 0 0; }
 .auth-message.error { background:#fff0f0; border-color:#f6d0d0; color:#a43e48; }
 .auth-message.success { background:#e9f8f3; border-color:#caeee1; color:#24765e; }
