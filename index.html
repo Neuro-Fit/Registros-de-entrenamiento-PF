@@ -23,17 +23,31 @@
         <div class="auth-logo"><img src="https://i.postimg.cc/yY45rPjP/1-1-1-Photoroom.png" alt="NeuroFit" onerror="this.style.display='none'" /></div>
         <div><strong>NEURO<span>FIT</span></strong><small>PERFORMANCE LAB</small></div>
       </div>
-      <p class="eyebrow">ACCESO PRIVADO</p>
+      <p class="eyebrow">ACCESO A TU ESPACIO</p>
       <h1 id="authTitle">Tu equipo, tus datos, en cualquier dispositivo.</h1>
-      <p class="auth-intro">Entra con tu correo autorizado y recibe un enlace seguro para acceder al seguimiento deportivo sincronizado.</p>
+      <p class="auth-intro" id="authIntro">Inicia sesión con el correo electrónico y la contraseña de tu cuenta para consultar los datos sincronizados.</p>
       <form id="authForm" class="auth-form">
         <label for="authEmail">Correo electrónico</label>
         <input id="authEmail" name="email" type="email" placeholder="tu@correo.com" autocomplete="email" required />
-        <button class="button button-primary auth-submit" id="authSubmit" type="submit">Enviar enlace de acceso <span>→</span></button>
+        <label for="authPassword">Contraseña</label>
+        <input id="authPassword" name="password" type="password" placeholder="Tu contraseña" autocomplete="current-password" required />
+        <button class="button button-primary auth-submit" id="authSubmit" type="submit">Iniciar sesión <span>→</span></button>
+        <div class="auth-secondary-actions">
+          <button class="auth-text-button" id="authModeToggle" type="button">¿No tienes cuenta? Crear una</button>
+          <button class="auth-text-button" id="authReset" type="button">Olvidé mi contraseña</button>
+        </div>
+      </form>
+      <form id="passwordRecoveryForm" class="auth-form" hidden>
+        <label for="newPassword">Nueva contraseña</label>
+        <input id="newPassword" name="newPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Mínimo 8 caracteres" required />
+        <label for="confirmPassword">Repite la nueva contraseña</label>
+        <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Vuelve a escribirla" required />
+        <button class="button button-primary auth-submit" id="updatePasswordButton" type="submit">Guardar nueva contraseña <span>→</span></button>
+        <button class="auth-text-button" id="cancelRecovery" type="button">Volver al inicio de sesión</button>
       </form>
       <p id="authMessage" class="auth-message" role="status">Configura Supabase para activar el acceso y la sincronización en la nube.</p>
-      <div class="auth-security"><span>●</span> Acceso por invitación · Sesión privada · Sincronización en la nube</div>
-      <details class="setup-details"><summary>¿Todavía no has conectado Supabase?</summary><p>Abre <strong>supabase-config.js</strong>, pega la URL de tu proyecto y la clave publicable. Después ejecuta el archivo <strong>supabase-setup.sql</strong> en el SQL Editor de Supabase y crea/invita las cuentas autorizadas.</p></details>
+      <div class="auth-security"><span>●</span> Correo y contraseña · Correos autorizados · Datos sincronizados</div>
+      <details class="setup-details"><summary>¿Todavía no has conectado Supabase?</summary><p>Abre <strong>supabase-config.js</strong>, pega la URL de tu proyecto y la clave publicable. Después ejecuta <strong>supabase-setup.sql</strong> en el SQL Editor. Cada persona puede crear su cuenta aquí, pero su correo debe estar en la lista de acceso para consultar los datos compartidos. No hace falta enviar invitaciones.</p></details>
     </div>
   </section>
 
